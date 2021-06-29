@@ -2,22 +2,28 @@ const User = require("../models/User");
 const Post = require("../models/Post");
 const asyncHandler = require("../middlewares/asyncHandler");
 
-exports.getUsers = asyncHandler(async (req, res, next) => {
-  let users = await User.find().select("-password").lean().exec();
+// editUser function - To edit a user
+exports.editUser = asyncHandler(async (req, res, next) => {
+  const { fullname, bio } = req.body;
 
-  users.forEach((user) => {
-    user.isFollowing = false;
-    const followers = user.followers.map((follower) => follower._id.toString());
-    if (followers.includes(req.user.id)) {
-      user.isFollowing = true;
+  const user = await User.findByIdAndUpdate(
+    req.user.id,
+    {
+      $set: { fullname, bio },
+    },
+    {
+      new: true,
+      runValidators: true,
     }
+  );
+
+  res.status(200).json({ 
+    success: true, 
+    data: user 
   });
-
-  users = users.filter((user) => user._id.toString() !== req.user.id);
-
-  res.status(200).json({ success: true, data: users });
 });
 
+// getUser function - To get a single user
 exports.getUser = asyncHandler(async (req, res, next) => {
   const user = await User.findOne({ username: req.params.username })
     .select("-password")
@@ -53,11 +59,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
     if (retweets && retweets.includes(req.user.id)) {
       post.isRetweeted = true;
     }
-
-
-
   })
-
 
   user.isFollowing = false;
   const followers = user.followers.map((follower) => follower._id.toString());
@@ -85,6 +87,27 @@ exports.getUser = asyncHandler(async (req, res, next) => {
   res.status(200).json({ success: true, data: user });
 });
 
+// getUsers function - To get all users
+exports.getUsers = asyncHandler(async (req, res, next) => {
+  let users = await User.find().select("-password").lean().exec();
+
+  users.forEach((user) => {
+    user.isFollowing = false;
+    const followers = user.followers.map((follower) => follower._id.toString());
+    if (followers.includes(req.user.id)) {
+      user.isFollowing = true;
+    }
+  });
+
+  users = users.filter((user) => user._id.toString() !== req.user.id);
+
+  res.status(200).json({ 
+    success: true,
+    data: users 
+  });
+});
+
+// follow function - To follow a user
 exports.follow = asyncHandler(async (req, res, next) => {
   // make sure the user exists
   const user = await User.findById(req.params.id);
@@ -98,12 +121,12 @@ exports.follow = asyncHandler(async (req, res, next) => {
 
   // make the sure the user is not the logged in user
   if (req.params.id === req.user.id) {
-    return next({ message: "You can't unfollow/follow yourself", status: 400 });
+    return next({ message: "Cannot unfollow/follow yourself", status: 400 });
   }
 
   // only follow if the user is not following already
   if (user.followers.includes(req.user.id)) {
-    return next({ message: "You are already following him", status: 400 });
+    return next({ message: "Already following the user", status: 400 });
   }
 
   await User.findByIdAndUpdate(req.params.id, {
@@ -115,9 +138,13 @@ exports.follow = asyncHandler(async (req, res, next) => {
     $inc: { followingCount: 1 },
   });
 
-  res.status(200).json({ success: true, data: {} });
+  res.status(200).json({ 
+    success: true, 
+    data: {} 
+  });
 });
 
+// unfollow function - To unfollow a user
 exports.unfollow = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
 
@@ -130,7 +157,7 @@ exports.unfollow = asyncHandler(async (req, res, next) => {
 
   // make the sure the user is not the logged in user
   if (req.params.id === req.user.id) {
-    return next({ message: "You can't follow/unfollow yourself", status: 400 });
+    return next({ message: "Cannot follow/unfollow yourself", status: 400 });
   }
 
   await User.findByIdAndUpdate(req.params.id, {
@@ -142,9 +169,13 @@ exports.unfollow = asyncHandler(async (req, res, next) => {
     $inc: { followingCount: -1 },
   });
 
-  res.status(200).json({ success: true, data: {} });
+  res.status(200).json({ 
+    success: true, 
+    data: {} 
+  });
 });
 
+// feed function - To display feed
 exports.feed = asyncHandler(async (req, res, next) => {
   const following = req.user.following;
 
@@ -169,7 +200,7 @@ exports.feed = asyncHandler(async (req, res, next) => {
     .exec();
 
   posts.forEach((post) => {
-    // is the loggedin user liked the post
+    // check whether the logged in user liked the post
     post.isLiked = false;
     const likes = post.likes.map((like) => like.toString());
     if (likes.includes(req.user.id)) {
@@ -182,20 +213,20 @@ exports.feed = asyncHandler(async (req, res, next) => {
       post.isRetweeted = true;
     }
 
-    // is the loggedin saved this post
+    // check whether the logged in user saved this post
     post.isSaved = false;
     const savedPosts = req.user.savedPosts.map((post) => post.toString());
     if (savedPosts.includes(post._id)) {
       post.isSaved = true;
     }
 
-    // is the post belongs to the loggedin user
+    // check whether the post belongs to the logged in user
     post.isMine = false;
     if (post.user._id.toString() === req.user.id) {
       post.isMine = true;
     }
 
-    // is the comment belongs to the loggedin user
+    // check whether the comment belongs to the logged in user
     post.comments.map((comment) => {
       comment.isCommentMine = false;
       if (comment.user._id.toString() === req.user.id) {
@@ -204,22 +235,8 @@ exports.feed = asyncHandler(async (req, res, next) => {
     });
   });
 
-  res.status(200).json({ success: true, data: posts });
-});
-
-exports.editUser = asyncHandler(async (req, res, next) => {
-  const { fullname, bio } = req.body;
-
-  const user = await User.findByIdAndUpdate(
-    req.user.id,
-    {
-      $set: { fullname, bio },
-    },
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
-
-  res.status(200).json({ success: true, data: user });
+  res.status(200).json({ 
+    success: true, 
+    data: posts 
+  });
 });

@@ -1,12 +1,24 @@
 const User = require("../models/User");
 const asyncHandler = require("../middlewares/asyncHandler");
 
+exports.signup = asyncHandler(async (req, res, next) => {
+  const { username, password } = req.body;
+
+  const user = await User.create({ username, password });
+  const token = user.getJwtToken();
+
+  res.status(201).json({ 
+    success: true, 
+    token 
+  });
+});
+
 exports.login = asyncHandler(async (req, res, next) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return next({
-      message: "Please provide email and password",
+      message: "Provide email and password",
       statusCode: 400,
     });
   }
@@ -15,7 +27,7 @@ exports.login = asyncHandler(async (req, res, next) => {
 
   if (!user) {
     return next({
-      message: "The email is not yet registered to an accout",
+      message: "Email is not yet registered to an account",
       statusCode: 400,
     });
   }
@@ -23,19 +35,17 @@ exports.login = asyncHandler(async (req, res, next) => {
   const match = await user.checkPassword(password);
 
   if (!match) {
-    return next({ message: "The password does not match", statusCode: 400 });
+    return next({ 
+      message: "Password does not match", 
+      statusCode: 400 
+    });
   }
+
   const token = user.getJwtToken();
-  res.status(200).json({ success: true, token });
-});
-
-exports.signup = asyncHandler(async (req, res, next) => {
-  const { username, password } = req.body;
-
-  const user = await User.create({ username, password });
-  const token = user.getJwtToken();
-
-  res.status(201).json({ success: true, token });
+  res.status(200).json({ 
+    success: true, 
+    token 
+  });
 });
 
 exports.me = asyncHandler(async (req, res, next) => {

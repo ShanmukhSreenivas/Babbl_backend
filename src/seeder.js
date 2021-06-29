@@ -26,6 +26,6 @@ const deleteData = async () => {
 if (process.argv[2] === "-d") {
   deleteData();
 } else {
-  console.log("not enough arguments");
+  console.log("Not enough arguments");
   process.exit(1);
 }

@@ -13,7 +13,7 @@ const CommentSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: [true, "Please enter the comment"],
+    required: [true, "Enter a comment"],
     trim: true,
   },
   createdAt: {

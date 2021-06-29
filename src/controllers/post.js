@@ -1,32 +1,57 @@
-const mongoose = require("mongoose");
-const Post = require("../models/Post");
 const User = require("../models/User");
+const Post = require("../models/Post");
 const Comment = require("../models/Comment");
 const asyncHandler = require("../middlewares/asyncHandler");
 
+// addPost function - To create a post
+exports.addPost = asyncHandler(async (req, res, next) => {
+  const { caption, files, tags } = req.body;
+  const user = req.user.id;
 
-exports.getTags = asyncHandler(async (req, res, next) => {
+  let post = await Post.create({ caption, files, tags, user });
 
-  const tags = await Post.find().distinct('tags');
-  res.status(200).json({ success: true, data: tags });
+  await User.findByIdAndUpdate(req.user.id, {
+    $push: { posts: post._id },
+    $inc: { postCount: 1 },
+  });
 
-})
+  post = await post
+    .populate({ path: "user", select: "avatar username fullname" })
+    .execPopulate();
 
-exports.getPosts = asyncHandler(async (req, res, next) => {
-
-  var query = {}
-  query.tags = { "$in": [req.query.tag] };
-
-  const posts = await Post.find(query)
-    .populate({
-      path: 'user',
-      select: 'username avatar'
-    });
-
-  res.status(200).json({ success: true, data: posts });
+  res.status(200).json({ 
+    success: true, 
+    data: post 
+  });
 });
 
+// searchPost function - To search a post
+exports.searchPost = asyncHandler(async (req, res, next) => {
+  if (!req.query.caption && !req.query.tag) {
+    return next({
+      message: "Enter caption or tag to search",
+      statusCode: 400,
+    });
+  }
 
+  let posts = [];
+
+  if (req.query.caption) {
+    const regex = new RegExp(req.query.caption, "i");
+    posts = await Post.find({ caption: regex });
+  }
+
+  if (req.query.tag) {
+    posts = posts.concat([await Post.find({ tags: req.query.tag })]);
+  }
+
+  res.status(200).json({ 
+    success: true, 
+    data: posts 
+  });
+});
+
+// getPost function - To get a single post
 exports.getPost = asyncHandler(async (req, res, next) => {
   const post = await Post.findById(req.params.id)
     .populate({
@@ -72,27 +97,35 @@ exports.getPost = asyncHandler(async (req, res, next) => {
   res.status(200).json({ success: true, data: post });
 });
 
+// getPosts function - To get all posts
+exports.getPosts = asyncHandler(async (req, res, next) => {
+  var query = {}
+  query.tags = { "$in": [req.query.tag] };
 
-exports.addPost = asyncHandler(async (req, res, next) => {
-  const { caption, files, tags } = req.body;
-  const user = req.user.id;
+  const posts = await Post.find(query)
+    .populate({
+      path: 'user',
+      select: 'username avatar'
+    });
 
-  let post = await Post.create({ caption, files, tags, user });
-
-  await User.findByIdAndUpdate(req.user.id, {
-    $push: { posts: post._id },
-    $inc: { postCount: 1 },
+  res.status(200).json({ 
+    success: true, 
+    data: posts 
   });
-
-  post = await post
-    .populate({ path: "user", select: "avatar username fullname" })
-    .execPopulate();
-
-  res.status(200).json({ success: true, data: post });
 });
 
+// getTags function - To get a tags
+exports.getTags = asyncHandler(async (req, res, next) => {
+  const tags = await Post.find().distinct('tags');
+  res.status(200).json({ 
+    success: true, 
+    data: tags
+  });
+})
+
+// toggleLike function - To toggle a like
 exports.toggleLike = asyncHandler(async (req, res, next) => {
-  // make sure that the post exists
+  // check for post existence
   const post = await Post.findById(req.params.id);
 
   if (!post) {
@@ -113,11 +146,14 @@ exports.toggleLike = asyncHandler(async (req, res, next) => {
     await post.save();
   }
 
-  res.status(200).json({ success: true, data: {} });
+  res.status(200).json({ 
+    success: true, 
+    data: {} 
+  });
 });
 
+// toggleRetweet function - To toggle a retweet
 exports.toggleRetweet = asyncHandler(async (req, res, next) => {
-
   const post = await Post.findById(req.params.id);
 
   if (!post) {
@@ -128,7 +164,6 @@ exports.toggleRetweet = asyncHandler(async (req, res, next) => {
   }
 
   if (post.retweets.includes(req.user.id)) {
-
     const index = post.retweets.indexOf(req.user.id);
     post.retweets.splice(index, 1);
     post.retweetCount = post.retweetCount - 1;
@@ -139,9 +174,7 @@ exports.toggleRetweet = asyncHandler(async (req, res, next) => {
       $pull: { posts: req.params.id },
       $inc: { postCount: -1 },
     });
-
   } else {
-
     post.retweets.push(req.user.id)
     post.retweetCount = post.retweetCount + 1;
 
@@ -153,9 +186,13 @@ exports.toggleRetweet = asyncHandler(async (req, res, next) => {
     });
   }
 
-  res.status(200).json({ success: true, data: {} });
+  res.status(200).json({ 
+    success: true, 
+    data: {} 
+  });
 });
 
+// toggleComment function - To toggle a comment
 exports.addComment = asyncHandler(async (req, res, next) => {
   const post = await Post.findById(req.params.id);
 
@@ -180,27 +217,8 @@ exports.addComment = asyncHandler(async (req, res, next) => {
     .populate({ path: "user", select: "avatar username fullname" })
     .execPopulate();
 
-  res.status(200).json({ success: true, data: comment });
-});
-
-exports.searchPost = asyncHandler(async (req, res, next) => {
-  if (!req.query.caption && !req.query.tag) {
-    return next({
-      message: "Please enter either caption or tag to search for",
-      statusCode: 400,
-    });
-  }
-
-  let posts = [];
-
-  if (req.query.caption) {
-    const regex = new RegExp(req.query.caption, "i");
-    posts = await Post.find({ caption: regex });
-  }
-
-  if (req.query.tag) {
-    posts = posts.concat([await Post.find({ tags: req.query.tag })]);
-  }
-
-  res.status(200).json({ success: true, data: posts });
+  res.status(200).json({ 
+    success: true, 
+    data: comment 
+  });
 });

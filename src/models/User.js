@@ -13,14 +13,15 @@ const UserSchema = new mongoose.Schema({
   },
   username: {
     type: String,
-    required: [true, "Please enter your username"],
+    required: [true, "Enter a username"],
     trim: true,
-    index: true, unique: true, sparse: true
+    index: true, 
+    unique: true, 
+    sparse: true
   },
-
   password: {
     type: String,
-    required: [true, "Please enter your password"],
+    required: [true, "Enter a password"],
     minlength: [6, "Password should be atleast minimum of 6 characters"],
     validate(value) {
       if (value.length < 6) {

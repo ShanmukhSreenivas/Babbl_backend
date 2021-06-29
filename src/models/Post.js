@@ -8,7 +8,7 @@ const PostSchema = new mongoose.Schema({
   },
   caption: {
     type: String,
-    required: [true, "Please enter the caption"],
+    required: [true, "Enter a caption"],
     trim: true,
   },
   tags: {
@@ -16,7 +16,7 @@ const PostSchema = new mongoose.Schema({
   },
   files: {
     type: [String],
-    validate: (v) => v === null || v.length > 0,
+    validate: (value) => value === null || value.length > 0,
   },
   likes: [{ type: mongoose.Schema.ObjectId, ref: "User" }],
   retweets: [{ type: mongoose.Schema.ObjectId, ref: "User" }],

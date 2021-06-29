@@ -9,9 +9,9 @@ const connectToDb = async () => {
       useFindAndModify: false,
     });
 
-    console.log(`Connected to database ${connection.connections[0].name}`);
+    console.log(`Database connection established with ${connection.connections[0].name}!`);
   } catch (err) {
-    console.error(err);
+    console.error("Error connecting to database instance due to: ", err);
   }
 };
 
